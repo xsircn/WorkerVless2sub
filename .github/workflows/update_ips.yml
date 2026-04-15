@@ -13,7 +13,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download and Setup CloudflareST
+- name: Download and Setup CloudflareST
         run: |
           # 获取下载地址
           DOWNLOAD_URL=$(curl -s https://api.github.com/repos/XIU2/CloudflareSpeedTest/releases/latest | grep "browser_download_url.*linux_amd64.tar.gz" | cut -d '"' -f 4)
@@ -21,14 +21,16 @@ jobs:
           echo "正在下载: $DOWNLOAD_URL"
           curl -L -o CloudflareST.tar.gz "$DOWNLOAD_URL"
           
-          # 检查文件
-          if [ ! -s CloudflareST.tar.gz ]; then
-            echo "错误：文件下载失败"
-            exit 1
-          fi
-          
+          # 解压所有文件
           tar -zxf CloudflareST.tar.gz
+          
+          # 【关键修复】：自动寻找解压出来的可执行文件并统一命名为 CloudflareST
+          # 无论它叫 cfst 还是 CloudflareST_linux，都重命名掉
+          ls -F | grep '*' | head -n 1 | xargs -I {} mv {} CloudflareST
+          
           chmod +x CloudflareST
+          echo "设置完成，当前目录文件列表："
+          ls -l
 
       - name: Run Speedtest
         run: |
