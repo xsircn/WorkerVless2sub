@@ -15,20 +15,26 @@ jobs:
 
       - name: Download and Setup CloudflareST
         run: |
-          # 自动获取最新下载链接
+          # 1. 获取最新版下载链接
           DOWNLOAD_URL=$(curl -s https://api.github.com/repos/XIU2/CloudflareSpeedTest/releases/latest | grep "browser_download_url.*linux_amd64.tar.gz" | cut -d '"' -f 4)
           echo "正在下载: $DOWNLOAD_URL"
           curl -L -o CloudflareST.tar.gz "$DOWNLOAD_URL"
           
-          # 解压
-          tar -zxf CloudflareST.tar.gz
+          # 2. 解压到独立文件夹
+          mkdir -p temp_st
+          tar -zxf CloudflareST.tar.gz -C temp_st
           
-          # 查找解压出的可执行文件并强制命名为 CloudflareST
-          # 这一步解决了作者修改文件名为 cfst 的问题
-          find . -maxdepth 1 -type f -executable -not -name "*.gz" -exec mv {} CloudflareST \;
+          # 3. 精准移动：只移动真正的二进制程序，重命名为 CloudflareST
+          find temp_st -type f -executable -exec mv {} ./CloudflareST \;
           
+          # 4. 将必备的 IP 段配置文件也移到根目录
+          cp temp_st/*.txt . || true
+          
+          # 5. 清理并赋权
           chmod +x CloudflareST
-          echo "文件准备就绪"
+          rm -rf temp_st
+          echo "准备就绪，目录列表："
+          ls -F
 
       - name: Run Speedtest
         run: |
@@ -40,5 +46,5 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add result.csv
-          # 只有在有变动时才提交，避免报错
+          # 检查变动并推送
           git diff --quiet && git diff --staged --quiet || (git commit -m "自动更新优选IP: $(date)" && git push)
