@@ -13,10 +13,22 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download CloudflareST
+    - name: Download and Setup CloudflareST
         run: |
-          wget -N https://github.com/XIU2/CloudflareSpeedTest/releases/latest/download/CloudflareST_linux_amd64.tar.gz
-          tar -zxf CloudflareST_linux_amd64.tar.gz
+          # 方案：使用 curl 自动获取最新版本的 tag 并拼接下载地址
+          # 这样可以避免手动修改版本号，同时解决 404 问题
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/XIU2/CloudflareSpeedTest/releases/latest | grep "browser_download_url.*linux_amd64.tar.gz" | cut -d '"' -f 4)
+          
+          echo "正在下载: $DOWNLOAD_URL"
+          curl -L -o CloudflareST.tar.gz "$DOWNLOAD_URL"
+          
+          # 检查文件是否下载成功
+          if [ ! -s CloudflareST.tar.gz ]; then
+            echo "错误：文件下载失败，请检查网络或 GitHub API 限制"
+            exit 1
+          fi
+          
+          tar -zxf CloudflareST.tar.gz
           chmod +x CloudflareST
 
       - name: Run Speedtest
