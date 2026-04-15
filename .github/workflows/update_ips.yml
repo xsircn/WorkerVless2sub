@@ -2,7 +2,7 @@ name: Cloudflare Auto Speedtest
 
 on:
   schedule:
-    - cron: '0 * * * *'  # 每小时执行一次
+    - cron: '0 * * * *'  # 每小时执行一次 (UTC时间)
   workflow_dispatch:      # 允许手动触发
 
 jobs:
@@ -20,25 +20,24 @@ jobs:
           echo "正在下载: $DOWNLOAD_URL"
           curl -L -o CloudflareST.tar.gz "$DOWNLOAD_URL"
           
-          # 2. 解压到独立文件夹
-          mkdir -p temp_st
-          tar -zxf CloudflareST.tar.gz -C temp_st
+          # 2. 解压
+          tar -zxf CloudflareST.tar.gz
           
-          # 3. 精准移动：只移动真正的二进制程序，重命名为 CloudflareST
-          find temp_st -type f -executable -exec mv {} ./CloudflareST \;
+          # 3. 【核心修复】精准重命名：将真正的程序 cfst 改名为 CloudflareST
+          # 这样可以彻底避免把 ip.txt 或 ipv6.txt 误认为程序
+          if [ -f "cfst" ]; then
+              mv cfst CloudflareST
+          fi
           
-          # 4. 将必备的 IP 段配置文件也移到根目录
-          cp temp_st/*.txt . || true
-          
-          # 5. 清理并赋权
+          # 4. 赋权并验证文件类型
           chmod +x CloudflareST
-          rm -rf temp_st
-          echo "准备就绪，目录列表："
-          ls -F
-
+          echo "文件类型检查："
+          file CloudflareST
+          
       - name: Run Speedtest
         run: |
-          # 执行测速
+          # 执行测速。如果报错权限不足，脚本会自动尝试 sudo
+          # -n 200: 测200个IP, -tl 200: 延迟200ms以内, -sl 5: 速度5MB/s以上
           sudo ./CloudflareST -n 200 -tl 200 -sl 5 -p 10 -o "result.csv"
 
       - name: Commit and Push
@@ -46,5 +45,5 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add result.csv
-          # 检查变动并推送
+          # 只有在文件内容确实有变化时才提交，防止 Action 报错
           git diff --quiet && git diff --staged --quiet || (git commit -m "自动更新优选IP: $(date)" && git push)
