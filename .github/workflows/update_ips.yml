@@ -2,8 +2,8 @@ name: Cloudflare Auto Speedtest
 
 on:
   schedule:
-    - cron: '0 * * * *'  # 每小时执行一次 (UTC时间)
-  workflow_dispatch:      # 支持手动触发
+    - cron: '0 * * * *'  # 每小时执行一次
+  workflow_dispatch:      # 允许手动触发
 
 jobs:
   build:
@@ -13,29 +13,26 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-- name: Download and Setup CloudflareST
+      - name: Download and Setup CloudflareST
         run: |
-          # 获取下载地址
+          # 自动获取最新下载链接
           DOWNLOAD_URL=$(curl -s https://api.github.com/repos/XIU2/CloudflareSpeedTest/releases/latest | grep "browser_download_url.*linux_amd64.tar.gz" | cut -d '"' -f 4)
-          
           echo "正在下载: $DOWNLOAD_URL"
           curl -L -o CloudflareST.tar.gz "$DOWNLOAD_URL"
           
-          # 解压所有文件
+          # 解压
           tar -zxf CloudflareST.tar.gz
           
-          # 【关键修复】：自动寻找解压出来的可执行文件并统一命名为 CloudflareST
-          # 无论它叫 cfst 还是 CloudflareST_linux，都重命名掉
-          ls -F | grep '*' | head -n 1 | xargs -I {} mv {} CloudflareST
+          # 查找解压出的可执行文件并强制命名为 CloudflareST
+          # 这一步解决了作者修改文件名为 cfst 的问题
+          find . -maxdepth 1 -type f -executable -not -name "*.gz" -exec mv {} CloudflareST \;
           
           chmod +x CloudflareST
-          echo "设置完成，当前目录文件列表："
-          ls -l
+          echo "文件准备就绪"
 
       - name: Run Speedtest
         run: |
-          # 建议增加 sudo 以确保网络测试顺利
-          # -n 200: 测试200个IP, -p 10: 显示前10个
+          # 执行测速
           sudo ./CloudflareST -n 200 -tl 200 -sl 5 -p 10 -o "result.csv"
 
       - name: Commit and Push
@@ -43,5 +40,5 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add result.csv
-          # 检查是否有变动，防止空提交报错
+          # 只有在有变动时才提交，避免报错
           git diff --quiet && git diff --staged --quiet || (git commit -m "自动更新优选IP: $(date)" && git push)
