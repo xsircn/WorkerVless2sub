@@ -3,7 +3,7 @@ name: Cloudflare Auto Speedtest
 on:
   schedule:
     - cron: '0 * * * *'  # 每小时执行一次 (UTC时间)
-  workflow_dispatch:      # 允许你在 GitHub 页面上点按钮手动触发
+  workflow_dispatch:      # 支持手动触发
 
 jobs:
   build:
@@ -13,18 +13,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-    - name: Download and Setup CloudflareST
+      - name: Download and Setup CloudflareST
         run: |
-          # 方案：使用 curl 自动获取最新版本的 tag 并拼接下载地址
-          # 这样可以避免手动修改版本号，同时解决 404 问题
+          # 获取下载地址
           DOWNLOAD_URL=$(curl -s https://api.github.com/repos/XIU2/CloudflareSpeedTest/releases/latest | grep "browser_download_url.*linux_amd64.tar.gz" | cut -d '"' -f 4)
           
           echo "正在下载: $DOWNLOAD_URL"
           curl -L -o CloudflareST.tar.gz "$DOWNLOAD_URL"
           
-          # 检查文件是否下载成功
+          # 检查文件
           if [ ! -s CloudflareST.tar.gz ]; then
-            echo "错误：文件下载失败，请检查网络或 GitHub API 限制"
+            echo "错误：文件下载失败"
             exit 1
           fi
           
@@ -33,16 +32,14 @@ jobs:
 
       - name: Run Speedtest
         run: |
-          # -n 200: 测试200个IP
-          # -tl 200: 延迟上限200ms
-          # -sl 5: 只要下行速度大于5MB/s的
-          # -p 10: 显示前10个结果
-          ./CloudflareST -n 200 -tl 200 -sl 5 -p 10 -o "result.csv"
+          # 建议增加 sudo 以确保网络测试顺利
+          # -n 200: 测试200个IP, -p 10: 显示前10个
+          sudo ./CloudflareST -n 200 -tl 200 -sl 5 -p 10 -o "result.csv"
 
       - name: Commit and Push
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add result.csv
-          # 只有当文件有变动时才提交，防止报错
+          # 检查是否有变动，防止空提交报错
           git diff --quiet && git diff --staged --quiet || (git commit -m "自动更新优选IP: $(date)" && git push)
