@@ -1,0 +1,36 @@
+name: Cloudflare Auto Speedtest
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # 每小时执行一次 (UTC时间)
+  workflow_dispatch:      # 允许你在 GitHub 页面上点按钮手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download CloudflareST
+        run: |
+          wget -N https://github.com/XIU2/CloudflareSpeedTest/releases/latest/download/CloudflareST_linux_amd64.tar.gz
+          tar -zxf CloudflareST_linux_amd64.tar.gz
+          chmod +x CloudflareST
+
+      - name: Run Speedtest
+        run: |
+          # -n 200: 测试200个IP
+          # -tl 200: 延迟上限200ms
+          # -sl 5: 只要下行速度大于5MB/s的
+          # -p 10: 显示前10个结果
+          ./CloudflareST -n 200 -tl 200 -sl 5 -p 10 -o "result.csv"
+
+      - name: Commit and Push
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add result.csv
+          # 只有当文件有变动时才提交，防止报错
+          git diff --quiet && git diff --staged --quiet || (git commit -m "自动更新优选IP: $(date)" && git push)
